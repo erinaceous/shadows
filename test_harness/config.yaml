@@ -1,0 +1,225 @@
+# Folder to use for "scratch" - Directory to save files temporarily whilst a
+# test chain is running. This means you can speed things up a bit by running
+# your chain from /tmp.
+# The script used to copy the results to the hard drive at the end of each
+# chain run, but now everything stays in scratch.
+scratch: '/tmp/test_harness/{image_set}/{chain}/{tunables}'
+
+# Define a default program directory prefix and argument format for programs to
+# use (so we don't need a bunch of boilerplate definitions of programs.
+#
+# 'prefix' can take the following variables:
+#
+# {harness_dir} -- the directory of this test harness. Useful for relative
+# paths.
+# It should also accept any environment variables; use ${VARIABLE} to get
+# things defined in bash.
+#
+# 'argument_format' Can contain any of the following:
+#
+# {verbose} -- converts to 'yes' or 'no'.
+# {chain} -- name of the chain being ran
+# {image_set} -- name of the image set being tested on
+# {parameters} -- parameters for the program, separated by spaces.
+#                 --param1 arg1 --param2 arg2 param3 arg3 ...
+# {parameters_list} -- parameters for the chain, separated by spaces.
+#                 param1 arg1 param2 arg2 param3 arg3 ...
+# {output_dir} -- directory which to save output to (will be within scratch)
+# {output_csv} -- output ROC CSV file (within output_dir)
+# {inputs} -- list of input files, separated by spaces.
+# {original_images} -- the path to the original input images, before they've
+#                      been moved to the scratch directory and altered by
+#                      programs in the chain.
+# {ground_truths} -- list of ground truth images, separated by spaces.
+#
+default_program:
+    prefix: '{harness_dir}/../methods/build'
+    argument_format: '--verbose {verbose} --info_chain {chain} --info_image_set {image_set} --info_parameters {parameters} {arguments} --output_dir {output_dir} --inputs {inputs} --original-images {original_images}'
+
+# Define the command to run to get ground truths
+ground_truths_program:
+    path: '{prefix}/ground_truth'
+    argument_format: '--replace_penumbra yes --info_chain {chain} --info_image_set {image_set} --parameters_list {parameters_list} --info_parameters {parameters} --output_dir {output_dir} --output_file {output_csv} --inputs {inputs} --ground_truths {ground_truths}'
+
+# Define the paths to programs (so we can refer to them in shorthand in chains)
+# File extension used may or may not result in the program saving its output
+# in a different format; OpenCV supports saving images in various formats, but
+# it's entirely dependent on the program's functionality. Don't expect to get
+# PNG images out of a program that only knows how to output in CSV by setting
+# its output_format to 'png'.
+#
+# Programs don't HAVE to be defined here to be used in chains. If you use a
+# program in a chain that's not been defined here, it'll assume it's stored in
+# default_program.prefix, and uses the default_program's argument_format.
+programs:
+    convert_to_png:
+        path: 'mogrify'
+        argument_format: '-format png -path {output_dir}/ {inputs}'
+
+# Here we define different shadow detection methods, made up of different
+# chains of programs.
+#
+# The first program of the chain must be able to accept input files of any
+# common image format and convert them to PNG. My code will do that (any
+# program using OpenCV's imread/imwrite will be able to e.g. convert from JPG
+# to PNG). Here I'm going to use ImageMagick's "mogrify" command, as I want to
+# add timing information to the chain before I actually run any of my own
+# methods. Plus ImageMagick can repair any glitchy images before the chain sees
+# them.
+#
+# Right now, the harness doesn't figure out the attribute with the highest
+# entropy, so order your arguments in order of value count, with the arguments
+# with the least number of values at the top. This translates directly into a
+# neater directory tree (or should do).
+# EDIT: Okay, no, it doesn't order like that. Because this config is loaded
+# into a dict (even an OrderedDict!) it doesn't seem to retain the order of
+# arguments. Or it might be my tree-building code.
+# TODO: Sort via entropy?
+chains:
+    # name_of_chain:
+        # name_of_program:
+            # arguments:
+                # first_argument: ['list', 'of', 'values']
+                # second_argument: [1, 2, 3]
+                # third_argument: single_value
+                # fourth_argument: null  # for command line switches like
+                                         # --verbose
+
+    # Chains used for report writeup
+    hypot1:  # grayscale thresholding, shadows only.
+        simple_threshold:
+            arguments:
+                shadow: [0, 25, 50, 100, 200]
+
+    hypot1a:
+        simple_threshold:
+            arguments:
+                shadow: [50]
+
+    hypot2:  # otsu thresholding
+        simple_threshold:
+            arguments:
+                otsu_mode: ['yes']
+
+    hypot3a:  # colour spaces w/ fixed threshold
+        simple_threshold:
+            arguments:
+                shadow: [0, 25, 50, 100, 200]
+                colour_space: ['grey', 'hls', 'hsv', 'xyz', 'lab', 'luv']
+
+    hypot3b:  # colour spaces w/ otsu
+        simple_threshold:
+            arguments:
+                otsu_mode: ['yes']
+                colour_space: ['grey', 'hls', 'hsv', 'xyz', 'lab', 'luv']
+
+    hypot4:  # otsu w/ gaussian blur
+        simple_threshold:
+            arguments:
+                otsu_mode: ['yes']
+                input_blur: [0, 3, 9, 15, 33]
+
+    hypot5:  # chromacity based method
+        regions:
+            arguments:
+                window_size: [1, 3, 9, 17]
+                thresh_hue: [50]
+                thresh_sat: [50]
+                beta1: [200, 220, 240, 250, 254]
+                beta2: [200, 220, 240, 250, 254]
+
+    hypot5a:  # testing chromacity w/ input_blur
+        regions:
+            arguments:
+                window_size: [1, 17]
+                thresh_hue: [50]
+                thresh_sat: [50]
+                beta1: [220]
+                beta2: [250]
+                input_blur: [0, 3, 9, 17, 33, 49]
+
+    hypot5b:  # testing best values of chromacity
+        regions:
+            arguments:
+                window_size: [1]
+                thresh_hue: [50]
+                thresh_sat: [50]
+                beta1: [220]
+                beta2: [250]
+                input_blur: [49]
+                
+    hypot6:  # testing effects of window_size
+        regions:
+            arguments:
+                window_size: [1, 2, 3, 4, 10, 11, 12, 13]
+                thresh_hue: [50]
+                thresh_sat: [50]
+                beta1: [220]
+                beta2: [250]
+
+    # Old test chains
+    simple_test:
+        simple_threshold:
+            arguments:
+                colour_space: ['grey', 'hls', 'hsv', 'xyz', 'lab', 'luv']
+                input_blur: [0, 9]
+                shadow: [0, 10, 25, 50, 100, 150, 200, 250]
+                #object: [1, 30, 60, 101, 151, 201, 254] # not testing objects
+                                                         # right now.
+    otsu_test:
+        simple_threshold:
+            # NOTE: Order of arguments seems to matter (not sure how to fix).
+            # So put arguments with multiple possibilities first, ones with
+            # single arguments second, and ones with no arguments ('null')
+            # last.
+            arguments:
+                otsu_mode: ['yes']
+                colour_space: ['grey', 'hls', 'hsv', 'xyz', 'lab', 'luv']
+                input_blur: [0, 9]
+    regions:
+        regions:
+            arguments:
+                window_size: [1, 3, 9, 17]
+                thresh_hue: [0, 10, 50]
+                thresh_sat: [0, 10, 50]
+                beta2: [1, 10, 20, 50]
+                input_blur: [0, 9, 15]
+                thresh_type: ['none', 'otsu']
+    chromacity:
+        chromacity:
+            arguments:
+                #denoise: ['yes', 'no']
+                input_blur: [0, 9, 15]
+                thresh_type: ['none', 'otsu']
+                thresh_value: [0, 10, 25, 50]
+                thresh_sat: [0, 10, 25, 50]
+    edges:
+        edges:
+            arguments:
+                input_blur: [0, 9, 15]
+                canny_threshold: [1, 5, 15]
+                canny_ratio: [1.1, 2, 5, 10]
+                kernel_size: [3, 5, 9]
+                equalize: ['yes', 'no']
+    contours:
+        contours:
+            arguments:
+                input_blur: [0, 15]
+                value_difference: [1, 3, 10, 50]
+                hue_sat_difference: [0, 10, 50, 100]
+                window_size: [3, 9, 17]
+    colour_analysis:
+        colour_analysis: null
+        ground_truth: false  # disable ground truth for this chain
+
+    # This one should generate some segfaults / exit codes that != 0.
+    # Used for testing the harnesses ability to catch errors.
+    crash_test:
+        regions:
+            arguments:
+                window_size: [1, 3]
+                thresh_type: ['adaptive']
+                input_blur: [2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22]
+
+
+# vim: set tabstop=4 shiftwidth=4 textwidth=79 cc=72,79:

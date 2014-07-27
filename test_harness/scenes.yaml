@@ -1,0 +1,21 @@
+# Lists of input images. Can either be an explicit list ([image1, image2, ...])
+# or a globbed file path (/path/to/images/*.jpg) or a path to a text file.
+# (The text file should contain a list of paths to images, one path per line)
+inputs:
+    artificial0: '{harness_dir}/../../data/images/artificial0/*.png'
+    kondo1_bf:   '{harness_dir}/../../data/images/kondo1_bifilter/*.png'
+    pioneer2:    '{harness_dir}/../../data/images/pioneer2/*filtered.jpg'
+    test:        '{harness_dir}/../../data/images/artificial0/0099.png'
+
+# Same rules as above, but with the ground truth images this time.
+# Ground truth images must have the same 'base' filenames as your input files,
+# but anything past the first underscore '_' is ignored.
+# Must be defined in the same order as your image sets above.
+ground_truths:
+    artificial0: '{harness_dir}/../../data/ground_truth/artificial0/*.png'
+    kondo1_bf:   '{harness_dir}/../../data/ground_truth/kondo1/*.png'
+    pioneer2:    '{harness_dir}/../../data/ground_truth/pioneer2/*gt.png'
+    test:        '{harness_dir}/../../data/ground_truth/artificial0/0099.png'
+
+
+# vim: set tabstop=4 shiftwidth=4 textwidth=79 cc=72,79:
