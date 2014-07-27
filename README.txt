@@ -1,6 +1,11 @@
 This is the GitHub copy of code written by myself for my undergraduate
 dissertation project for my BSc at Aberystwyth University --
-"Shadow Detection for Mobile Robots"
+"Shadow Detection for Mobile Robots".
+If you're interested in the project, you can read about how I [failed to
+produce anything working, because naive undergrad going into serious real
+world computer vision and machine learning for the first time] in the report,
+of which I've uploaded a copy to this repo:
+https://cdn.rawgit.com/erinaceous/shadows/master/odj_cs39440_report.pdf
 
 
 If you make use of this and want the accompanying data to go with it, you are
